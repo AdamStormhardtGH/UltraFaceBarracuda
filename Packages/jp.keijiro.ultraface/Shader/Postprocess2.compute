@@ -29,31 +29,33 @@ void Postprocess2(uint3 id : SV_DispatchThreadID)
         _flags[i] = true;
     }
 
-    // Overlap test permutation
-    for (i = 0; i < entry_count - 1; i++)
+    // Find the face with the highest score and size above the threshold
+    float highestScore = 0.0f;
+    float largestSize = 0.0f;
+    int highestIndex = -1;
+
+    for (uint i = 0; i < entry_count; i++)
     {
-        if (!_flags[i]) continue;
-
-        for (uint j = i + 1; j < entry_count; j++)
+        if (_entries[i].score >= Threshold)
         {
-            if (!_flags[j]) continue;
-
-            // Overlap test
-            if (CalculateIOU(_entries[i], _entries[j]) < Threshold) continue;
-
-            // Score comparison
-            if (_entries[i].score < _entries[j].score)
+            float size = (_entries[i].x2 - _entries[i].x1) * (_entries[i].y2 - _entries[i].y1);
+            if (size > largestSize)
             {
-                _flags[i] = false;
-                // The box in the outer loop is removed. Break the inner loop.
-                break;
+                largestSize = size;
+                highestScore = _entries[i].score;
+                highestIndex = i;
             }
-            else
-                _flags[j] = false;
+            else if (size == largestSize && _entries[i].score > highestScore)
+            {
+                highestScore = _entries[i].score;
+                highestIndex = i;
+            }
         }
     }
 
-    // Output aggregation
-    for (i = 0; i < entry_count; i++)
-        if (_flags[i]) Output.Append(_entries[i]);
+    // Output the face with the highest score and size if found
+    if (highestIndex != -1)
+    {
+        Output.Append(_entries[highestIndex]);
+    }
 }
